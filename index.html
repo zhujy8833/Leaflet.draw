@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Leaflet Draw</title>
+
+	<link rel="stylesheet" href="https://raw.github.com/jacobtoye/Leaflet.draw/master/lib/leaflet/leaflet.css" />
+	<link rel="stylesheet" href="https://raw.github.com/jacobtoye/Leaflet.draw/master/Control.Draw.css" />
+	<!--[if lte IE 8]><link rel="stylesheet" href="https://raw.github.com/jacobtoye/Leaflet.draw/master/lib/leaflet/leaflet.ie.css" /><![endif]-->
+
+	<script src="https://raw.github.com/jacobtoye/Leaflet.draw/master/lib/leaflet/leaflet-src.js"></script>
+	<script src="https://raw.github.com/jacobtoye/Leaflet.draw/master/Handler.Draw.js"></script>
+	<script src="https://raw.github.com/jacobtoye/Leaflet.draw/master/Polyline.Draw.js"></script>
+	<script src="https://raw.github.com/jacobtoye/Leaflet.draw/master/Polygon.Draw.js"></script>
+	<script src="https://raw.github.com/jacobtoye/Leaflet.draw/master/Rectangle.Draw.js"></script>
+	<script src="https://raw.github.com/jacobtoye/Leaflet.draw/master/Marker.Draw.js"></script>
+	<script src="https://raw.github.com/jacobtoye/Leaflet.draw/master/Control.Draw.js"></script>
+</head>
+<body>
+	<div id="map" style="position: absolute; top: 0; left: 0;width: 100%; height: 100%;"></div>
+	
+	<script>
+		
+		var cloudmadeUrl = 'http://{s}.tile.cloudmade.com/BC9A493B41014CAABB98F0471D759707/997/256/{z}/{x}/{y}.png',
+			cloudmade = new L.TileLayer(cloudmadeUrl, {maxZoom: 18}),
+			map = new L.Map('map', {layers: [cloudmade], center: new L.LatLng(-37.7772, 175.2756), zoom: 15 });
+
+		var drawControl = new L.Control.Draw({
+			position: 'topright',
+			styles: {
+				polygon: {
+					color: '#bada55'
+				}
+			}
+		});
+		map.addControl(drawControl);
+		
+		var drawnItems = new L.LayerGroup();
+		map.on('draw:poly-created', function (e) {
+			drawnItems.addLayer(e.poly);
+		});
+		map.on('draw:rectangle-created', function (e) {
+			drawnItems.addLayer(e.rect);
+		});
+		map.on('draw:marker-created', function (e) {
+			drawnItems.addLayer(e.marker);
+		});
+		map.addLayer(drawnItems);
+		
+	</script>
+</body>
+</html>
