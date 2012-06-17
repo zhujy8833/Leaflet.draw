@@ -34,6 +34,9 @@
 		});
 		map.on('draw:rectangle-created', function (e) {
 			drawnItems.addLayer(e.rect);
+		});		
+		map.on('draw:circle-created', function (e) {
+			drawnItems.addLayer(e.circ);
 		});
 		map.on('draw:marker-created', function (e) {
 			drawnItems.addLayer(e.marker);
