@@ -20,8 +20,9 @@
 			map = new L.Map('map', {layers: [cloudmade], center: new L.LatLng(-37.7772, 175.2756), zoom: 15 });
 
 		var drawControl = new L.Control.Draw({
-			styles: {
-				polygon: {
+			polygon: {
+				allowIntersection: false,
+				shapeOptions: {
 					color: '#bada55'
 				}
 			}
