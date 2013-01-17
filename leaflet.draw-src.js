@@ -5,7 +5,7 @@
 */
 (function (window, undefined) {
 
-L.drawVersion = '0.1.4';
+L.drawVersion = '0.1.6';
 
 L.Util.extend(L.LineUtil, {
 	// Checks to see if two line segments intersect. Does not handle degenerate cases.
@@ -155,7 +155,13 @@ L.Handler.Draw = L.Handler.extend({
 
 	enable: function () {
 		this.fire('activated');
+		this._map.fire('drawing', { drawingType: this.type });
 		L.Handler.prototype.enable.call(this);
+	},
+
+	disable: function () {
+		this._map.fire('drawing-disabled', { drawingType: this.type });
+		L.Handler.prototype.disable.call(this);
 	},
 	
 	addHooks: function () {
@@ -212,6 +218,8 @@ L.Handler.Draw = L.Handler.extend({
 
 L.Polyline.Draw = L.Handler.Draw.extend({
 	Poly: L.Polyline,
+	
+	type: 'polyline',
 
 	options: {
 		allowIntersection: true,
@@ -547,6 +555,8 @@ L.Polyline.Draw = L.Handler.Draw.extend({
 
 L.Polygon.Draw = L.Polyline.Draw.extend({
 	Poly: L.Polygon,
+	
+	type: 'polygon',
 
 	options: {
 		shapeOptions: {
@@ -668,6 +678,8 @@ L.SimpleShape.Draw = L.Handler.Draw.extend({
 });
 
 L.Circle.Draw = L.SimpleShape.Draw.extend({
+	type: 'circle',
+
 	options: {
 		shapeOptions: {
 			stroke: true,
@@ -701,6 +713,8 @@ L.Circle.Draw = L.SimpleShape.Draw.extend({
 });
 
 L.Rectangle.Draw = L.SimpleShape.Draw.extend({
+	type: 'rectangle',
+
 	options: {
 		shapeOptions: {
 			stroke: true,
@@ -734,6 +748,8 @@ L.Rectangle.Draw = L.SimpleShape.Draw.extend({
 });
 
 L.Marker.Draw = L.Handler.Draw.extend({
+	type: 'marker',
+
 	options: {
 		icon: new L.Icon.Default(),
 		zIndexOffset: 2000 // This should be > than the highest z-index any markers
@@ -820,76 +836,83 @@ L.Control.Draw = L.Control.extend({
 		}
 	},
 
-	handlers: {},
-	
 	initialize: function (options) {
 		L.Util.extend(this.options, options);
 	},
 	
 	onAdd: function (map) {
-		var className = 'leaflet-control-draw',
-			container = L.DomUtil.create('div', className);
-
+		var drawName = 'leaflet-control-draw', //TODO
+			barName = 'leaflet-bar',
+			partName = barName + '-part',
+			container = L.DomUtil.create('div', drawName + ' ' + barName),
+			buttons = [];
+	
+		this.handlers = {};
+	
 		if (this.options.polyline) {
 			this.handlers.polyline = new L.Polyline.Draw(map, this.options.polyline);
-			this._createButton(
+			buttons.push(this._createButton(
 				this.options.polyline.title,
-				className + '-polyline',
+				drawName + '-polyline ' + partName,
 				container,
 				this.handlers.polyline.enable,
 				this.handlers.polyline
-			);
+			));
 			this.handlers.polyline.on('activated', this._disableInactiveModes, this);
 		}
 
 		if (this.options.polygon) {
 			this.handlers.polygon = new L.Polygon.Draw(map, this.options.polygon);
-			this._createButton(
+			buttons.push(this._createButton(
 				this.options.polygon.title,
-				className + '-polygon',
+				drawName + '-polygon ' + partName,
 				container,
 				this.handlers.polygon.enable,
 				this.handlers.polygon
-			);
+			));
 			this.handlers.polygon.on('activated', this._disableInactiveModes, this);
 		}
 
 		if (this.options.rectangle) {
 			this.handlers.rectangle = new L.Rectangle.Draw(map, this.options.rectangle);
-			this._createButton(
+			buttons.push(this._createButton(
 				this.options.rectangle.title,
-				className + '-rectangle',
+				drawName + '-rectangle ' + partName,
 				container,
 				this.handlers.rectangle.enable,
 				this.handlers.rectangle
-			);
+			));
 			this.handlers.rectangle.on('activated', this._disableInactiveModes, this);
 		}
 
 		if (this.options.circle) {
 			this.handlers.circle = new L.Circle.Draw(map, this.options.circle);
-			this._createButton(
+			buttons.push(this._createButton(
 				this.options.circle.title,
-				className + '-circle',
+				drawName + '-circle ' + partName,
 				container,
 				this.handlers.circle.enable,
 				this.handlers.circle
-			);
+			));
 			this.handlers.circle.on('activated', this._disableInactiveModes, this);
 		}
 
 		if (this.options.marker) {
 			this.handlers.marker = new L.Marker.Draw(map, this.options.marker);
-			this._createButton(
+			buttons.push(this._createButton(
 				this.options.marker.title,
-				className + '-marker',
+				drawName + '-marker ' + partName,
 				container,
 				this.handlers.marker.enable,
 				this.handlers.marker
-			);
+			));
 			this.handlers.marker.on('activated', this._disableInactiveModes, this);
 		}
 		
+		// Add in the top and bottom classes so we get the border radius
+		L.DomUtil.addClass(buttons[0], partName + '-top');
+		L.DomUtil.addClass(buttons[buttons.length - 1], partName + '-bottom');
+
 		return container;
 	},
 
@@ -925,6 +948,7 @@ L.Map.addInitHook(function () {
 		this.addControl(this.drawControl);
 	}
 });
+
 
 
 
