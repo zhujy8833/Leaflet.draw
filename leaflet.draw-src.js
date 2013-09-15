@@ -183,9 +183,9 @@ L.Draw.Polyline = L.Draw.Feature.extend({
 
 	options: {
 		allowIntersection: true,
+		repeatMode: false,
 		drawError: {
 			color: '#b00b00',
-			message: L.drawLocal.draw.handlers.polyline.error,
 			timeout: 2500
 		},
 		icon: new L.DivIcon({
@@ -206,6 +206,9 @@ L.Draw.Polyline = L.Draw.Feature.extend({
 	},
 
 	initialize: function (map, options) {
+		// Need to set this here to ensure the correct message is used.
+		this.options.drawError.message = L.drawLocal.draw.handlers.polyline.error;
+
 		// Merge default drawError options with custom options
 		if (options && options.drawError) {
 			options.drawError = L.Util.extend({}, this.options.drawError, options.drawError);
@@ -293,6 +296,9 @@ L.Draw.Polyline = L.Draw.Feature.extend({
 
 		this._fireCreatedEvent();
 		this.disable();
+		if (this.options.repeatMode) {
+			this.enable();
+		}
 	},
 
 	//Called to verify the shape is valid when the user tries to finish it
@@ -378,11 +384,11 @@ L.Draw.Polyline = L.Draw.Feature.extend({
 	},
 
 	_updateGuide: function (newPos) {
-		newPos = newPos || this._map.latLngToLayerPoint(this._currentLatLng);
-
 		var markerCount = this._markers.length;
 
 		if (markerCount > 0) {
+			newPos = newPos || this._map.latLngToLayerPoint(this._currentLatLng);
+
 			// draw the guide line
 			this._clearGuides();
 			this._drawGuide(
@@ -483,29 +489,12 @@ L.Draw.Polyline = L.Draw.Feature.extend({
 	_getMeasurementString: function () {
 		var currentLatLng = this._currentLatLng,
 			previousLatLng = this._markers[this._markers.length - 1].getLatLng(),
-			distance, distanceStr;
+			distance;
 
 		// calculate the distance from the last fixed point to the mouse position
 		distance = this._measurementRunningTotal + currentLatLng.distanceTo(previousLatLng);
 
-		if (this.options.metric) {
-			// show metres when distance is < 1km, then show km
-			if (distance  > 1000) {
-				distanceStr = (distance  / 1000).toFixed(2) + ' km';
-			} else {
-				distanceStr = Math.ceil(distance) + ' m';
-			}
-		} else {
-			distance *= 1.09361;
-
-			if (distance > 1760) {
-				distanceStr = (distance / 1760).toFixed(2) + ' miles';
-			} else {
-				distanceStr = Math.ceil(distance) + ' yd';
-			}
-		}
-
-		return distanceStr;
+		return L.GeometryUtil.readableDistance(distance, this.options.metric);
 	},
 
 	_showErrorTooltip: function () {
@@ -568,6 +557,7 @@ L.Draw.Polyline = L.Draw.Feature.extend({
 		L.Draw.Feature.prototype._fireCreatedEvent.call(this, poly);
 	}
 });
+
 
 L.Draw.Polygon = L.Draw.Polyline.extend({
 	statics: {
@@ -634,32 +624,13 @@ L.Draw.Polygon = L.Draw.Polyline.extend({
 	},
 
 	_getMeasurementString: function () {
-		var area = this._area,
-			areaStr;
+		var area = this._area;
 
 		if (!area) {
 			return null;
 		}
 
-		if (this.options.metric) {
-			if (area >= 10000) {
-				areaStr = (area * 0.0001).toFixed(2) + ' ha';
-			} else {
-				areaStr = area.toFixed(2) + ' m&sup2;';
-			}
-		} else {
-			area *= 0.836127; // Square yards in 1 meter
-
-			if (area >= 3097600) { //3097600 square yards in 1 square mile
-				areaStr = (area / 3097600).toFixed(2) + ' mi&sup2;';
-			} else if (area >= 4840) {//48040 square yards in 1 acre
-				areaStr = (area / 4840).toFixed(2) + ' acres';
-			} else {
-				areaStr = Math.ceil(area) + ' yd&sup2;';
-			}
-		}
-
-		return areaStr;
+		return L.GeometryUtil.readableArea(area, this.options.metric);
 	},
 
 	_shapeIsValid: function () {
@@ -674,7 +645,7 @@ L.Draw.Polygon = L.Draw.Polyline.extend({
 
 		var latLngs = this._poly.getLatLngs();
 
-		this._area = L.PolygonUtil.geodesicArea(latLngs);
+		this._area = L.GeometryUtil.geodesicArea(latLngs);
 	},
 
 	_cleanUpShape: function () {
@@ -694,6 +665,16 @@ L.Draw.Polygon = L.Draw.Polyline.extend({
 L.SimpleShape = {};
 
 L.Draw.SimpleShape = L.Draw.Feature.extend({
+	options: {
+		repeatMode: false
+	},
+
+	initialize: function (map, options) {
+		this._endLabelText = L.drawLocal.draw.handlers.simpleshape.tooltip.end;
+
+		L.Draw.Feature.prototype.initialize.call(this, map, options);
+	},
+
 	addHooks: function () {
 		L.Draw.Feature.prototype.addHooks.call(this);
 		if (this._map) {
@@ -745,7 +726,7 @@ L.Draw.SimpleShape = L.Draw.Feature.extend({
 
 		this._tooltip.updatePosition(latlng);
 		if (this._isDrawing) {
-			this._tooltip.updateContent({ text: L.drawLocal.draw.handlers.simpleshape.tooltip.end });
+			this._tooltip.updateContent({ text: this._endLabelText });
 			this._drawShape(latlng);
 		}
 	},
@@ -756,6 +737,9 @@ L.Draw.SimpleShape = L.Draw.Feature.extend({
 		}
 
 		this.disable();
+		if (this.options.repeatMode) {
+			this.enable();
+		}
 	}
 });
 
@@ -781,9 +765,10 @@ L.Draw.Rectangle = L.Draw.SimpleShape.extend({
 		// Save the type so super can fire, need to do this as cannot do this.TYPE :(
 		this.type = L.Draw.Rectangle.TYPE;
 
+		this._initialLabelText = L.drawLocal.draw.handlers.rectangle.tooltip.start;
+
 		L.Draw.SimpleShape.prototype.initialize.call(this, map, options);
 	},
-	_initialLabelText: L.drawLocal.draw.handlers.rectangle.tooltip.start,
 
 	_drawShape: function (latlng) {
 		if (!this._shape) {
@@ -816,17 +801,18 @@ L.Draw.Circle = L.Draw.SimpleShape.extend({
 			fillColor: null, //same as color by default
 			fillOpacity: 0.2,
 			clickable: true
-		}
+		},
+		metric: true // Whether to use the metric meaurement system or imperial
 	},
 
 	initialize: function (map, options) {
 		// Save the type so super can fire, need to do this as cannot do this.TYPE :(
 		this.type = L.Draw.Circle.TYPE;
 
+		this._initialLabelText = L.drawLocal.draw.handlers.circle.tooltip.start;
+
 		L.Draw.SimpleShape.prototype.initialize.call(this, map, options);
 	},
-
-	_initialLabelText: L.drawLocal.draw.handlers.circle.tooltip.start,
 
 	_drawShape: function (latlng) {
 		if (!this._shape) {
@@ -844,6 +830,7 @@ L.Draw.Circle = L.Draw.SimpleShape.extend({
 
 	_onMouseMove: function (e) {
 		var latlng = e.latlng,
+			metric = this.options.metric,
 			radius;
 
 		this._tooltip.updatePosition(latlng);
@@ -854,8 +841,8 @@ L.Draw.Circle = L.Draw.SimpleShape.extend({
 			radius = this._shape.getRadius().toFixed(1);
 
 			this._tooltip.updateContent({
-				text: 'Release mouse to finish drawing.',
-				subtext: 'Radius: ' + radius + ' m'
+				text: this._endLabelText,
+				subtext: 'Radius: ' + L.GeometryUtil.readableDistance(radius, this.options.metric)
 			});
 		}
 	}
@@ -868,6 +855,7 @@ L.Draw.Marker = L.Draw.Feature.extend({
 
 	options: {
 		icon: new L.Icon.Default(),
+		repeatMode: false,
 		zIndexOffset: 2000 // This should be > than the highest z-index any markers
 	},
 
@@ -951,6 +939,9 @@ L.Draw.Marker = L.Draw.Feature.extend({
 		this._fireCreatedEvent();
 
 		this.disable();
+		if (this.options.repeatMode) {
+			this.enable();
+		}
 	},
 
 	_fireCreatedEvent: function () {
@@ -1568,11 +1559,7 @@ L.LatLngUtil = {
 	}
 };
 
-/*
- * L.PolygonUtil contains different utility functions for Polygons.
- */
-
-L.PolygonUtil = {
+L.GeometryUtil = {
 	// Ported from the OpenLayers implementation. See https://github.com/openlayers/openlayers/blob/master/lib/OpenLayers/Geometry/LinearRing.js#L270
 	geodesicArea: function (latLngs) {
 		var pointsCount = latLngs.length,
@@ -1591,6 +1578,53 @@ L.PolygonUtil = {
 		}
 
 		return Math.abs(area);
+	},
+
+	readableArea: function (area, isMetric) {
+		var areaStr;
+
+		if (isMetric) {
+			if (area >= 10000) {
+				areaStr = (area * 0.0001).toFixed(2) + ' ha';
+			} else {
+				areaStr = area.toFixed(2) + ' m&sup2;';
+			}
+		} else {
+			area *= 0.836127; // Square yards in 1 meter
+
+			if (area >= 3097600) { //3097600 square yards in 1 square mile
+				areaStr = (area / 3097600).toFixed(2) + ' mi&sup2;';
+			} else if (area >= 4840) {//48040 square yards in 1 acre
+				areaStr = (area / 4840).toFixed(2) + ' acres';
+			} else {
+				areaStr = Math.ceil(area) + ' yd&sup2;';
+			}
+		}
+
+		return areaStr;
+	},
+
+	readableDistance: function (distance, isMetric) {
+		var distanceStr;
+
+		if (isMetric) {
+			// show metres when distance is < 1km, then show km
+			if (distance > 1000) {
+				distanceStr = (distance  / 1000).toFixed(2) + ' km';
+			} else {
+				distanceStr = Math.ceil(distance) + ' m';
+			}
+		} else {
+			distance *= 1.09361;
+
+			if (distance > 1760) {
+				distanceStr = (distance / 1760).toFixed(2) + ' miles';
+			} else {
+				distanceStr = Math.ceil(distance) + ' yd';
+			}
+		}
+
+		return distanceStr;
 	}
 };
 
@@ -1954,9 +1988,7 @@ L.Toolbar = L.Class.extend({
 
 	_createActions: function (buttons) {
 		var container = L.DomUtil.create('ul', 'leaflet-draw-actions'),
-			buttonWidth = 50,
 			l = buttons.length,
-			containerWidth = (l * buttonWidth) + (l - 1), //l - 1 = the borders
 			li, button;
 
 		for (var i = 0; i < l; i++) {
@@ -1975,8 +2007,6 @@ L.Toolbar = L.Class.extend({
 				callback: buttons[i].callback
 			});
 		}
-
-		container.style.width = containerWidth + 'px';
 
 		return container;
 	},
@@ -2328,12 +2358,14 @@ L.EditToolbar.Edit = L.Handler.extend({
 			.on('layerremove', this._disableLayerEdit, this);
 
 		this.fire('enabled', {handler: this.type});
+		this._map.fire('draw:editstart', { handler: this.type });
 	},
 
 	disable: function () {
 		if (!this._enabled) { return; }
 
 		this.fire('disabled', {handler: this.type});
+		this._map.fire('draw:editstop', { handler: this.type });
 
 		this._featureGroup
 			.off('layeradd', this._enableLayerEdit, this)
@@ -2427,6 +2459,9 @@ L.EditToolbar.Edit = L.Handler.extend({
 	},
 
 	_toggleMarkerHighlight: function (marker) {
+		if (!marker._icon) {
+			return;
+		}
 		// This is quite naughty, but I don't see another way of doing it. (short of setting a new icon)
 		var icon = marker._icon;
 
@@ -2529,6 +2564,7 @@ L.EditToolbar.Edit = L.Handler.extend({
 	}
 });
 
+
 L.EditToolbar.Delete = L.Handler.extend({
 	statics: {
 		TYPE: 'remove' // not delete as delete is reserved in js
@@ -2562,6 +2598,7 @@ L.EditToolbar.Delete = L.Handler.extend({
 			.on('layerremove', this._disableLayerDelete, this);
 
 		this.fire('enabled', { handler: this.type});
+		this._map.fire('draw:editstart', { handler: this.type });
 	},
 
 	disable: function () {
@@ -2574,6 +2611,7 @@ L.EditToolbar.Delete = L.Handler.extend({
 			.off('layerremove', this._disableLayerDelete, this);
 
 		this.fire('disabled', { handler: this.type});
+		this._map.fire('draw:editstop', { handler: this.type });
 	},
 
 	addHooks: function () {
