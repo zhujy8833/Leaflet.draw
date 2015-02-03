@@ -30,6 +30,8 @@ local.properties
 # PDT-specific
 .buildpath
 
+.idea/
+npm-debug.log
 
 #################
 ## Visual Studio

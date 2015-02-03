@@ -59,9 +59,7 @@ L.Edit.Poly = L.Handler.extend({
 
 		var latlngs = this._poly._latlngs,
 			i, j, len, marker;
-
 		// TODO refactor holes implementation in Polygon to support it here
-
 		for (i = 0, len = latlngs.length; i < len; i++) {
 
 			marker = this._createMarker(latlngs[i], i);
@@ -84,11 +82,13 @@ L.Edit.Poly = L.Handler.extend({
 		}
 	},
 
-	_createMarker: function (latlng, index) {
-		var marker = new L.Marker(latlng, {
-			draggable: true,
+	_createMarker: function (latlng, index, options) {
+		options = options || {};
+		console.log('createMarker');
+		var marker = new L.Marker(latlng, L.extend({
+			draggable: !this.shapeDisabled,
 			icon: this.options.icon
-		});
+		}, options));
 
 		marker._origLatLng = latlng;
 		marker._index = index;
@@ -182,7 +182,7 @@ L.Edit.Poly = L.Handler.extend({
 
 	_createMiddleMarker: function (marker1, marker2) {
 		var latlng = this._getMiddleLatLng(marker1, marker2),
-		    marker = this._createMarker(latlng),
+		    marker = this._createMarker(latlng, null, {type : 'middleMarker'}),
 		    onClick,
 		    onDragStart,
 		    onDragEnd;
@@ -252,6 +252,37 @@ L.Edit.Poly = L.Handler.extend({
 		    p2 = map.project(marker2.getLatLng());
 
 		return map.unproject(p1._add(p2)._divideBy(2));
+	},
+
+	enableShape: function () {
+		var markerType;
+		this._markerGroup.eachLayer(function (marker) {
+			if (marker) {
+				markerType = marker.options && marker.options.type ?
+					marker.options.type : undefined;
+				console.log(marker);
+				//L.setOptions(marker, {draggable: true});
+				marker.dragging.enable();
+				//marker.setOpacity(1);
+			}
+		});
+		this.shapeDisabled = false;
+
+		return this;
+	},
+
+	disableShape: function () {
+		this._markerGroup.eachLayer(function (marker) {
+			if (marker) {
+				console.log(marker);
+				//L.setOptions(marker, {draggable: false});
+				//marker.setOpacity(0);
+				marker.dragging.disable();
+			}
+		});
+		this.shapeDisabled = true;
+
+		return this;
 	}
 });
 
